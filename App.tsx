@@ -172,6 +172,11 @@ export default function App() {
       }
     });
 
+    // Watchdog: if no progress event arrives within 20 s, unblock the UI
+    const watchdog = setTimeout(() => {
+      setAppPhase(prev => prev === 'boot' ? 'browser' : prev);
+    }, 20_000);
+
     const bootstrap = async () => {
       // 1. Load persisted data
       const [savedThreads, savedReminders, savedLearners, savedArtifacts] = await Promise.all([
@@ -197,7 +202,7 @@ export default function App() {
 
     bootstrap().catch(console.error);
 
-    return () => unsubscribe();
+    return () => { unsubscribe(); clearTimeout(watchdog); };
   }, []);
 
   // ─── Persist state ─────────────────────────────────────────────────────────

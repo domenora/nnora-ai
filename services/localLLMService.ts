@@ -1,6 +1,7 @@
 /**
  * localLLMService.ts
  *
+ * Replaces geminiService.ts — provides the same public API surface
  * (nnoraAgentChat, generateProactiveNudge, generateNnoraArtifact)
  * but routes inference to the on-device LLM via @capgo/capacitor-llm.
  *
@@ -11,6 +12,22 @@
  *  4. Once downloaded → calls setModel() + warmup() to load it into memory
  *  5. LLM is ready for inference
  *
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │                    MODEL SETUP GUIDE                        │
+ * │                                                             │
+ * │  1. Export your model to ExecuTorch (.pte) or MediaPipe     │
+ * │     LLM Inference API (.task) format.                       │
+ * │                                                             │
+ * │  2. Host the model file on your own CDN / server.           │
+ * │     e.g. https://cdn.yourserver.com/models/llama3_1b.pte    │
+ * │                                                             │
+ * │  3. Set MODEL_DOWNLOAD_URL to your hosted file URL below.   │
+ * │                                                             │
+ * │  Recommended models for mobile (balance speed vs quality):  │
+ * │   - Llama 3.2 1B  (ExecuTorch, ~1GB)                       │
+ * │   - Qwen2.5 0.5B  (MediaPipe, ~500MB)                      │
+ * │   - Phi-3.5 Mini  (ExecuTorch, ~2.3GB — needs 6GB RAM)     │
+ * └─────────────────────────────────────────────────────────────┘
  */
 
 import {
@@ -22,14 +39,15 @@ import {
 
 /**
  * The local filename the model will be saved as on the device.
- * 
+ * Change this to match your model.
  */
 const MODEL_FILE_NAME = 'llama_3_2_1b_xnnpack_spinquant.pte'; // ← Change to your model file name
 
 /**
- * Hosted model URL. The model is downloaded from here on first launch
+ * Your hosted model URL. The model is downloaded from here on first launch
  * and cached locally — subsequent launches use the cached file.
  * 
+ * ← IMPORTANT: Replace this with your actual CDN/server URL before shipping.
  */
 const MODEL_DOWNLOAD_URL = 'https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/main/1b/xnnpack/llama_3_2_1b_xnnpack_spinquant.pte';
 
@@ -38,7 +56,7 @@ const MODEL_DOWNLOAD_URL = 'https://huggingface.co/software-mansion/react-native
  */
 const MODEL_ENGINE: 'executorch' | 'mediapipe' = 'executorch';
 /** Session ID for the LLM plugin — keeps system prompt warm between messages */
-const SESSION_ID = 'nnora-v1';
+const SESSION_ID = 'knora-v1';
 
 /** Storage key to remember if the model has been downloaded */
 const MODEL_DOWNLOADED_KEY = 'knora_model_downloaded';
@@ -91,7 +109,14 @@ async function getLLMPlugin(): Promise<CapgoLLM | null> {
     if (!isCapacitor()) return null;
     if (_llmPlugin) return _llmPlugin;
     try {
-        const mod = await import('@capgo/capacitor-llm');
+        // Race the import against a 15-second timeout so the app never hangs
+        // indefinitely on device if the native bridge is unresponsive.
+        const mod = await Promise.race([
+            import('@capgo/capacitor-llm'),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('LLM plugin import timed out')), 15_000)
+            ),
+        ]);
         _llmPlugin = (mod as any).CapacitorLlm as CapgoLLM;
         return _llmPlugin;
     } catch (e) {
@@ -284,8 +309,9 @@ export const initializeLocalLLM = async (): Promise<{
         // ── Step 3: Load model into memory ─────────────────────────────────
         emitProgress({ phase: 'loading', message: 'Loading AI model into memory…' });
 
-        if (!_downloadedThisSession || !(await modelExistsLocally())) {
-            // Model was already there — just configure the plugin with local file path
+        if (!_downloadedThisSession && (await modelExistsLocally())) {
+            // Model was already cached from a previous session — configure the plugin
+            // with the local file path so it loads from disk instead of downloading again.
             await plugin.setModel({
                 engine: MODEL_ENGINE,
                 modelPath: MODEL_FILE_NAME, // Local filename
@@ -344,7 +370,7 @@ const runInference = async (promptText: string): Promise<string | null> => {
     }
 };
 
-// ─── Public API  ─────────────────────────
+// ─── Public API (matches geminiService.ts interface) ─────────────────────────
 
 export const nnoraAgentChat = async (
     history: ChatMessage[],
