@@ -1,0 +1,139 @@
+@import "katex/dist/katex.min.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Mobile / Capacitor Fixes ─────────────────────────────────────────────── */
+
+/* Safe area insets for iPhone notch, Dynamic Island, and home indicator */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
+/* Prevent overscroll bounce / rubber-banding on iOS WebView */
+html,
+body {
+  overscroll-behavior: none;
+  -webkit-overscroll-behavior: none;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Suppress default tap highlight on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Allow text selection where needed */
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Ensure the bottom chat input always stays above the home indicator on iOS */
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* Push content above the keyboard on iOS when input is focused */
+.keyboard-aware {
+  position: sticky;
+  bottom: 0;
+  bottom: env(safe-area-inset-bottom);
+}
+
+/* Custom scrollbar for desktop */
+@media (hover: hover) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+/* ─── Animations ────────────────────────────────────────────────────────────── */
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Typography ────────────────────────────────────────────────────────────── */
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, .serif {
+  font-family: 'Merriweather', serif;
+}
+
+/* ─── Markdown content ─────────────────────────────────────────────────────── */
+
+.markdown-body {
+  font-size: 0.875rem;
+  line-height: 1.625;
+}
+
+/* ─── Print ─────────────────────────────────────────────────────────────────── */
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print\:shadow-none,
+  .print\:shadow-none * {
+    visibility: visible;
+  }
+  .print\:shadow-none {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
